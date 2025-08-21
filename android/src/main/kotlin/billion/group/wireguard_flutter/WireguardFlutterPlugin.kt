@@ -19,6 +19,7 @@ import android.os.Build
 import android.util.Log
 import com.beust.klaxon.Klaxon
 import com.wireguard.android.backend.*
+import com.wireguard.android.backend.Statistics
 import com.wireguard.crypto.Key
 import com.wireguard.crypto.KeyPair
 import io.flutter.plugin.common.EventChannel
