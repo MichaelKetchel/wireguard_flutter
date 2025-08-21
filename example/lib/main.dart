@@ -118,7 +118,7 @@ class _MyAppState extends State<MyApp> {
                     const EdgeInsets.fromLTRB(20, 15, 20, 15)),
                 backgroundColor:
                     WidgetStateProperty.all<Color>(Colors.blueAccent),
-                overlayColor: MaterialStateProperty.all<Color>(
+                overlayColor: WidgetStateProperty.all<Color>(
                     Colors.white.withOpacity(0.1))),
             child: const Text(
               'initialize',
@@ -130,12 +130,12 @@ class _MyAppState extends State<MyApp> {
             onPressed: startVpn,
             style: ButtonStyle(
                 minimumSize:
-                    MaterialStateProperty.all<Size>(const Size(100, 50)),
-                padding: MaterialStateProperty.all(
+                    WidgetStateProperty.all<Size>(const Size(100, 50)),
+                padding: WidgetStateProperty.all(
                     const EdgeInsets.fromLTRB(20, 15, 20, 15)),
                 backgroundColor:
-                    MaterialStateProperty.all<Color>(Colors.blueAccent),
-                overlayColor: MaterialStateProperty.all<Color>(
+                    WidgetStateProperty.all<Color>(Colors.blueAccent),
+                overlayColor: WidgetStateProperty.all<Color>(
                     Colors.white.withOpacity(0.1))),
             child: const Text(
               'Connect',

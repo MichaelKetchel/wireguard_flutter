@@ -22,7 +22,7 @@ class WireGuardStatistics {
   /// Creates a WireGuardStatistics instance from a platform channel map
   factory WireGuardStatistics.fromMap(Map<String, dynamic> map) {
     // Safe conversion functions
-    int _safeIntConversion(dynamic value) {
+    int safeIntConversion(dynamic value) {
       if (value == null) return 0;
       if (value is int) return value;
       if (value is double) return value.toInt();
@@ -30,7 +30,7 @@ class WireGuardStatistics {
       return 0;
     }
     
-    bool _safeBoolConversion(dynamic value) {
+    bool safeBoolConversion(dynamic value) {
       if (value == null) return false;
       if (value is bool) return value;
       if (value is String) return value.toLowerCase() == 'true';
@@ -38,7 +38,7 @@ class WireGuardStatistics {
       return false;
     }
     
-    DateTime? _safeDateTimeConversion(dynamic value) {
+    DateTime? safeDateTimeConversion(dynamic value) {
       if (value == null) return null;
       try {
         if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
@@ -54,10 +54,10 @@ class WireGuardStatistics {
     }
     
     return WireGuardStatistics(
-      rxBytes: _safeIntConversion(map['rxBytes']),
-      txBytes: _safeIntConversion(map['txBytes']),
-      lastHandshake: _safeDateTimeConversion(map['lastHandshake']),
-      isConnected: _safeBoolConversion(map['isConnected']),
+      rxBytes: safeIntConversion(map['rxBytes']),
+      txBytes: safeIntConversion(map['txBytes']),
+      lastHandshake: safeDateTimeConversion(map['lastHandshake']),
+      isConnected: safeBoolConversion(map['isConnected']),
     );
   }
   
