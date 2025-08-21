@@ -169,6 +169,15 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             "getUploadData" -> {
                 getUploadData(result)
             }
+            "getTransferData" -> {
+                getTransferData(result)
+            }
+            "getStatistics" -> {
+                getStatistics(result)
+            }
+            "getLastHandshake" -> {
+                getLastHandshake(result)
+            }
             else -> flutterNotImplemented(result)
         }
     }
@@ -310,6 +319,80 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             } catch (e: Throwable) {
                 Log.e(TAG, "getUploadData - ERROR - ${e.message}")
                 flutterError(result, e.message.toString())
+            }
+        }
+    }
+    private fun getTransferData(result: Result) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val transferData = futureBackend.await().getTransferData(tunnel(tunnelName))
+                val totalBytes = transferData.txBytes + transferData.rxBytes
+                flutterSuccess(result, totalBytes)
+            } catch (e: Throwable) {
+                Log.e(TAG, "getTransferData - ERROR - ${e.message}")
+                flutterError(result, e.message.toString())
+            }
+        }
+    }
+
+    private fun getStatistics(result: Result) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val backend = futureBackend.await()
+                val tunnel = tunnel(tunnelName)
+                val transferData = backend.getTransferData(tunnel)
+                val isConnected = backend.getState(tunnel) == Tunnel.State.UP
+                
+                // Get last handshake time from statistics
+                val statistics = backend.getStatistics(tunnel)
+                var latestHandshake: Long = 0
+                
+                for (peer in statistics.peers()) {
+                    val handshakeTime = peer.latestHandshakeTime.epochSecond * 1000L // Convert to milliseconds
+                    if (handshakeTime > latestHandshake) {
+                        latestHandshake = handshakeTime
+                    }
+                }
+                
+                val statsMap = mapOf(
+                    "rxBytes" to transferData.rxBytes,
+                    "txBytes" to transferData.txBytes,
+                    "lastHandshake" to if (latestHandshake > 0) latestHandshake else null,
+                    "isConnected" to isConnected
+                )
+                
+                flutterSuccess(result, statsMap)
+            } catch (e: Throwable) {
+                Log.e(TAG, "getStatistics - ERROR - ${e.message}")
+                val defaultStats = mapOf(
+                    "rxBytes" to 0L,
+                    "txBytes" to 0L,
+                    "lastHandshake" to null,
+                    "isConnected" to false
+                )
+                flutterSuccess(result, defaultStats)
+            }
+        }
+    }
+
+    private fun getLastHandshake(result: Result) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val backend = futureBackend.await()
+                val statistics = backend.getStatistics(tunnel(tunnelName))
+                
+                var latestHandshake: Long = 0
+                for (peer in statistics.peers()) {
+                    val handshakeTime = peer.latestHandshakeTime.epochSecond * 1000L // Convert to milliseconds
+                    if (handshakeTime > latestHandshake) {
+                        latestHandshake = handshakeTime
+                    }
+                }
+                
+                flutterSuccess(result, if (latestHandshake > 0) latestHandshake else null)
+            } catch (e: Throwable) {
+                Log.e(TAG, "getLastHandshake - ERROR - ${e.message}")
+                flutterSuccess(result, null)
             }
         }
     }

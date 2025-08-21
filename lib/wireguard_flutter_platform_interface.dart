@@ -1,3 +1,5 @@
+import 'wireguard_statistics.dart';
+
 abstract class WireGuardFlutterInterface {
   Stream<VpnStage> get vpnStageSnapshot;
 
@@ -10,6 +12,22 @@ abstract class WireGuardFlutterInterface {
   });
 
   Future<void> stopVpn();
+  Future<void> checkPermission();
+  
+  /// Get comprehensive statistics including transfer data and last handshake
+  Future<WireGuardStatistics> getStatistics();
+  
+  /// Get download data in bytes (for backward compatibility)
+  Future<int> getDownloadData();
+  
+  /// Get upload data in bytes (for backward compatibility)
+  Future<int> getUploadData();
+  
+  /// Get transfer data in bytes (for backward compatibility)
+  Future<int> getTransferData();
+  
+  /// Get the timestamp of the last handshake with the peer
+  Future<DateTime?> getLastHandshake();
 
   Future<void> refreshStage();
   Future<VpnStage> stage();

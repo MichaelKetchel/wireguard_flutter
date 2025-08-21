@@ -176,6 +176,133 @@ namespace wireguard_flutter
       result->Success(tunnel_service->GetStatus());
       return;
     }
+    else if (call.method_name() == "getStatistics")
+    {
+      auto tunnel_service = this->tunnel_service_.get();
+      if (tunnel_service == nullptr || !tunnel_service->is_running())
+      {
+        EncodableMap statistics;
+        statistics[EncodableValue("rxBytes")] = EncodableValue(static_cast<int64_t>(0));
+        statistics[EncodableValue("txBytes")] = EncodableValue(static_cast<int64_t>(0));
+        statistics[EncodableValue("lastHandshake")] = EncodableValue();
+        statistics[EncodableValue("isConnected")] = EncodableValue(false);
+        
+        result->Success(EncodableValue(statistics));
+        return;
+      }
+
+      try
+      {
+        auto stats = tunnel_service->get_statistics();
+        
+        EncodableMap statistics;
+        statistics[EncodableValue("rxBytes")] = EncodableValue(static_cast<int64_t>(stats.rx_bytes));
+        statistics[EncodableValue("txBytes")] = EncodableValue(static_cast<int64_t>(stats.tx_bytes));
+        if (stats.last_handshake > 0) {
+          statistics[EncodableValue("lastHandshake")] = EncodableValue(static_cast<int64_t>(stats.last_handshake * 1000)); // Convert to milliseconds
+        } else {
+          statistics[EncodableValue("lastHandshake")] = EncodableValue();
+        }
+        statistics[EncodableValue("isConnected")] = EncodableValue(true);
+        
+        result->Success(EncodableValue(statistics));
+      }
+      catch (exception &e)
+      {
+        result->Error(string("Failed to get statistics: ").append(e.what()));
+      }
+      return;
+    }
+    else if (call.method_name() == "getDownloadData")
+    {
+      auto tunnel_service = this->tunnel_service_.get();
+      if (tunnel_service == nullptr || !tunnel_service->is_running())
+      {
+        result->Success(EncodableValue(static_cast<int64_t>(0)));
+        return;
+      }
+
+      try
+      {
+        auto stats = tunnel_service->get_statistics();
+        result->Success(EncodableValue(static_cast<int64_t>(stats.rx_bytes)));
+      }
+      catch (exception &e)
+      {
+        result->Error(string("Failed to get download data: ").append(e.what()));
+      }
+      return;
+    }
+    else if (call.method_name() == "getUploadData")
+    {
+      auto tunnel_service = this->tunnel_service_.get();
+      if (tunnel_service == nullptr || !tunnel_service->is_running())
+      {
+        result->Success(EncodableValue(static_cast<int64_t>(0)));
+        return;
+      }
+
+      try
+      {
+        auto stats = tunnel_service->get_statistics();
+        result->Success(EncodableValue(static_cast<int64_t>(stats.tx_bytes)));
+      }
+      catch (exception &e)
+      {
+        result->Error(string("Failed to get upload data: ").append(e.what()));
+      }
+      return;
+    }
+    else if (call.method_name() == "getTransferData")
+    {
+      auto tunnel_service = this->tunnel_service_.get();
+      if (tunnel_service == nullptr || !tunnel_service->is_running())
+      {
+        result->Success(EncodableValue(static_cast<int64_t>(0)));
+        return;
+      }
+
+      try
+      {
+        auto stats = tunnel_service->get_statistics();
+        result->Success(EncodableValue(static_cast<int64_t>(stats.rx_bytes + stats.tx_bytes)));
+      }
+      catch (exception &e)
+      {
+        result->Error(string("Failed to get transfer data: ").append(e.what()));
+      }
+      return;
+    }
+    else if (call.method_name() == "getLastHandshake")
+    {
+      auto tunnel_service = this->tunnel_service_.get();
+      if (tunnel_service == nullptr || !tunnel_service->is_running())
+      {
+        result->Success(EncodableValue());
+        return;
+      }
+
+      try
+      {
+        auto stats = tunnel_service->get_statistics();
+        if (stats.last_handshake > 0) {
+          result->Success(EncodableValue(static_cast<int64_t>(stats.last_handshake * 1000))); // Convert to milliseconds
+        } else {
+          result->Success(EncodableValue());
+        }
+      }
+      catch (exception &e)
+      {
+        result->Error(string("Failed to get last handshake: ").append(e.what()));
+      }
+      return;
+    }
+    else if (call.method_name() == "checkPermission")
+    {
+      // On Windows, permissions are handled differently, just return success
+      result->Success();
+      return;
+    }
 
     result->NotImplemented();
   }

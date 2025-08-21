@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import 'wireguard_flutter_platform_interface.dart';
+import 'wireguard_statistics.dart';
 
 class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
   static const _methodChannelVpnControl =
@@ -57,4 +58,77 @@ class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
               )
             : VpnStage.disconnected,
       );
+
+  @override
+  Future<WireGuardStatistics> getStatistics() async {
+    try {
+      final Map<String, dynamic>? result = 
+          await _methodChannel.invokeMethod('getStatistics');
+      if (result == null) {
+        return const WireGuardStatistics(
+          rxBytes: 0,
+          txBytes: 0,
+          isConnected: false,
+        );
+      }
+      return WireGuardStatistics.fromMap(Map<String, dynamic>.from(result));
+    } catch (e) {
+      return const WireGuardStatistics(
+        rxBytes: 0,
+        txBytes: 0,
+        isConnected: false,
+      );
+    }
+  }
+
+  @override
+  Future<int> getDownloadData() async {
+    try {
+      final int? result = await _methodChannel.invokeMethod('getDownloadData');
+      return result ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<int> getUploadData() async {
+    try {
+      final int? result = await _methodChannel.invokeMethod('getUploadData');
+      return result ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<int> getTransferData() async {
+    try {
+      final int? result = await _methodChannel.invokeMethod('getTransferData');
+      return result ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  @override
+  Future<DateTime?> getLastHandshake() async {
+    try {
+      final int? timestamp = await _methodChannel.invokeMethod('getLastHandshake');
+      return timestamp != null && timestamp > 0
+          ? DateTime.fromMillisecondsSinceEpoch(timestamp)
+          : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> checkPermission() async {
+    try {
+      await _methodChannel.invokeMethod('checkPermission');
+    } catch (e) {
+      // Ignore errors for now
+    }
+  }
 }

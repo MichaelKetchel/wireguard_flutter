@@ -361,10 +361,121 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
-        // Add code here to handle the message.
-        if let handler = completionHandler {
-            handler(messageData)
+        guard let message = String(data: messageData, encoding: .utf8) else {
+            completionHandler?(nil)
+            return
         }
+        
+        switch message {
+        case "getTransferData":
+            handleGetTransferData(completionHandler: completionHandler)
+        case "getStatistics":
+            handleGetStatistics(completionHandler: completionHandler)
+        case "getLastHandshake":
+            handleGetLastHandshake(completionHandler: completionHandler)
+        default:
+            completionHandler?(nil)
+        }
+    }
+    
+    private func handleGetTransferData(completionHandler: ((Data?) -> Void)?) {
+        guard let runtimeConfig = adapter.getRuntimeConfiguration() else {
+            // Return zero values if no runtime config available
+            var result = Data(count: 16)
+            result.withUnsafeMutableBytes { bytes in
+                bytes.storeBytes(of: UInt64(0), toByteOffset: 0, as: UInt64.self)
+                bytes.storeBytes(of: UInt64(0), toByteOffset: 8, as: UInt64.self)
+            }
+            completionHandler?(result)
+            return
+        }
+        
+        // Parse runtime configuration to extract transfer data
+        let (rxBytes, txBytes) = parseTransferDataFromConfig(runtimeConfig)
+        
+        var result = Data(count: 16)
+        result.withUnsafeMutableBytes { bytes in
+            bytes.storeBytes(of: rxBytes, toByteOffset: 0, as: UInt64.self)
+            bytes.storeBytes(of: txBytes, toByteOffset: 8, as: UInt64.self)
+        }
+        completionHandler?(result)
+    }
+    
+    private func handleGetStatistics(completionHandler: ((Data?) -> Void)?) {
+        guard let runtimeConfig = adapter.getRuntimeConfiguration() else {
+            let defaultStats: [String: Any] = [
+                "rxBytes": 0,
+                "txBytes": 0,
+                "lastHandshake": NSNull()
+            ]
+            let data = try? JSONSerialization.data(withJSONObject: defaultStats)
+            completionHandler?(data)
+            return
+        }
+        
+        let (rxBytes, txBytes) = parseTransferDataFromConfig(runtimeConfig)
+        let lastHandshake = parseLastHandshakeFromConfig(runtimeConfig)
+        
+        let statistics: [String: Any] = [
+            "rxBytes": rxBytes,
+            "txBytes": txBytes,
+            "lastHandshake": lastHandshake != 0 ? lastHandshake * 1000 : NSNull() // Convert to milliseconds
+        ]
+        
+        let data = try? JSONSerialization.data(withJSONObject: statistics)
+        completionHandler?(data)
+    }
+    
+    private func handleGetLastHandshake(completionHandler: ((Data?) -> Void)?) {
+        guard let runtimeConfig = adapter.getRuntimeConfiguration() else {
+            var result = Data(count: 8)
+            result.withUnsafeMutableBytes { bytes in
+                bytes.storeBytes(of: Int64(0), toByteOffset: 0, as: Int64.self)
+            }
+            completionHandler?(result)
+            return
+        }
+        
+        let lastHandshake = parseLastHandshakeFromConfig(runtimeConfig)
+        let timestampMs = lastHandshake != 0 ? lastHandshake * 1000 : 0 // Convert to milliseconds
+        
+        var result = Data(count: 8)
+        result.withUnsafeMutableBytes { bytes in
+            bytes.storeBytes(of: timestampMs, toByteOffset: 0, as: Int64.self)
+        }
+        completionHandler?(result)
+    }
+    
+    private func parseTransferDataFromConfig(_ config: String) -> (UInt64, UInt64) {
+        var rxBytes: UInt64 = 0
+        var txBytes: UInt64 = 0
+        
+        let lines = config.components(separatedBy: .newlines)
+        for line in lines {
+            if line.hasPrefix("rx_bytes=") {
+                if let value = UInt64(String(line.dropFirst(9))) {
+                    rxBytes = value
+                }
+            } else if line.hasPrefix("tx_bytes=") {
+                if let value = UInt64(String(line.dropFirst(9))) {
+                    txBytes = value
+                }
+            }
+        }
+        
+        return (rxBytes, txBytes)
+    }
+    
+    private func parseLastHandshakeFromConfig(_ config: String) -> Int64 {
+        let lines = config.components(separatedBy: .newlines)
+        for line in lines {
+            if line.hasPrefix("last_handshake_time_sec=") {
+                if let value = Int64(String(line.dropFirst(24))) {
+                    return value
+                }
+            }
+        }
+        return 0
     }
 
     override func sleep(completionHandler: @escaping () -> Void) {

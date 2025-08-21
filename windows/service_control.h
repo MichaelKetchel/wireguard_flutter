@@ -17,6 +17,12 @@ struct CreateArgs {
   bool first_time;
 };
 
+struct WireGuardStatistics {
+  uint64_t rx_bytes;
+  uint64_t tx_bytes;
+  int64_t last_handshake; // Unix timestamp in seconds
+};
+
 class ServiceControl {
  public:
   std::wstring service_name_;
@@ -27,6 +33,8 @@ class ServiceControl {
   void CreateAndStart(CreateArgs args);
   void Stop();
   std::string GetStatus();
+  bool is_running();
+  WireGuardStatistics get_statistics();
   void RegisterListener(std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> &&events);
   void UnregisterListener();
   void EmitState(std::string state);

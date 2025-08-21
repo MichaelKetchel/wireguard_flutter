@@ -59,6 +59,18 @@ public class WireguardFlutterPlugin: NSObject, FlutterPlugin {
                 let providerBundleIdentifier: String? = (call.arguments as? [String: Any])?["providerBundleIdentifier"] as? String
                 self.connect(serverAddress: serverAddress!, wgQuickConfig: wgQuickConfig!, providerBundleIdentifier: providerBundleIdentifier!, result: result)
             
+            case "getStatistics":
+                self.getStatistics(result: result)
+            case "getDownloadData":
+                self.getDownloadData(result: result)
+            case "getUploadData":
+                self.getUploadData(result: result)
+            case "getTransferData":
+                self.getTransferData(result: result)
+            case "getLastHandshake":
+                self.getLastHandshake(result: result)
+            case "checkPermission":
+                result(nil)
             case "dispose":
                 self.initialized = false
             default:
@@ -88,6 +100,24 @@ public class WireguardFlutterPlugin: NSObject, FlutterPlugin {
     private func getUploadData(result: @escaping FlutterResult) {
         WireguardFlutterPlugin.utils.getTransferData { _, uploadData in
             result(uploadData)
+        }
+    }
+    
+    private func getTransferData(result: @escaping FlutterResult) {
+        WireguardFlutterPlugin.utils.getTransferData { downloadData, uploadData in
+            result((downloadData ?? 0) + (uploadData ?? 0))
+        }
+    }
+    
+    private func getStatistics(result: @escaping FlutterResult) {
+        WireguardFlutterPlugin.utils.getStatistics { statistics in
+            result(statistics)
+        }
+    }
+    
+    private func getLastHandshake(result: @escaping FlutterResult) {
+        WireguardFlutterPlugin.utils.getLastHandshake { timestamp in
+            result(timestamp)
         }
     }
     
@@ -303,6 +333,82 @@ class VPNUtils {
             } catch {
                 NSLog("Error (sendProviderMessage): \(error)")
                 completion(nil, nil)
+            }
+        }
+    }
+    
+    func getStatistics(completion: @escaping ([String: Any]) -> Void) {
+        NETunnelProviderManager.loadAllFromPreferences { managers, error in
+            guard let manager = managers?.first else {
+                completion([
+                    "rxBytes": 0,
+                    "txBytes": 0,
+                    "isConnected": false
+                ])
+                return
+            }
+            
+            guard let session = manager.connection as? NETunnelProviderSession else {
+                completion([
+                    "rxBytes": 0,
+                    "txBytes": 0,
+                    "isConnected": false
+                ])
+                return
+            }
+            
+            let isConnected = manager.connection.status == .connected
+            
+            do {
+                try session.sendProviderMessage("getStatistics".data(using: .utf8)!) { response in
+                    if let data = response,
+                       let stats = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        var finalStats = stats
+                        finalStats["isConnected"] = isConnected
+                        completion(finalStats)
+                    } else {
+                        completion([
+                            "rxBytes": 0,
+                            "txBytes": 0,
+                            "isConnected": isConnected
+                        ])
+                    }
+                }
+            } catch {
+                NSLog("Error (sendProviderMessage): \(error)")
+                completion([
+                    "rxBytes": 0,
+                    "txBytes": 0,
+                    "isConnected": isConnected
+                ])
+            }
+        }
+    }
+    
+    func getLastHandshake(completion: @escaping (Int64?) -> Void) {
+        NETunnelProviderManager.loadAllFromPreferences { managers, error in
+            guard let manager = managers?.first else {
+                completion(nil)
+                return
+            }
+            
+            guard let session = manager.connection as? NETunnelProviderSession else {
+                completion(nil)
+                return
+            }
+            
+            do {
+                try session.sendProviderMessage("getLastHandshake".data(using: .utf8)!) { response in
+                    if let data = response, data.count == 8 {
+                        let timestamp = data.withUnsafeBytes { $0.load(as: Int64.self) }
+                        completion(timestamp > 0 ? timestamp : nil)
+                    } else {
+                        completion(nil)
+                    }
+                }
+            } catch {
+                NSLog("Error (sendProviderMessage): \(error)")
+                completion(nil)
             }
         }
     }

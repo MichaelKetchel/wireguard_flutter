@@ -5,8 +5,10 @@ import 'package:wireguard_flutter/linux/wireguard_flutter_linux.dart';
 import 'package:wireguard_flutter/wireguard_flutter_method_channel.dart';
 
 import 'wireguard_flutter_platform_interface.dart';
+import 'wireguard_statistics.dart';
 
 export 'wireguard_flutter_platform_interface.dart' show VpnStage;
+export 'wireguard_statistics.dart' show WireGuardStatistics;
 
 class WireGuardFlutter extends WireGuardFlutterInterface {
   static WireGuardFlutterInterface? __instance;
@@ -59,4 +61,22 @@ class WireGuardFlutter extends WireGuardFlutterInterface {
 
   @override
   Future<VpnStage> stage() => _instance.stage();
+
+  @override
+  Future<WireGuardStatistics> getStatistics() => _instance.getStatistics();
+
+  @override
+  Future<int> getDownloadData() => _instance.getDownloadData();
+
+  @override
+  Future<int> getUploadData() => _instance.getUploadData();
+
+  @override
+  Future<int> getTransferData() => _instance.getTransferData();
+
+  @override
+  Future<DateTime?> getLastHandshake() => _instance.getLastHandshake();
+
+  @override
+  Future<void> checkPermission() => _instance.checkPermission();
 }
