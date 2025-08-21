@@ -303,11 +303,13 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private fun getDownloadData(result: Result) {
         scope.launch(Dispatchers.IO) {
             try {
-                val downloadData = futureBackend.await().getTransferData(tunnel(tunnelName)).rxBytes
-                flutterSuccess(result, downloadData)
+                val backend = futureBackend.await()
+                val tunnel = tunnel(tunnelName)
+                val stats = backend.getStatistics(tunnel)
+                flutterSuccess(result, stats.totalRx())
             } catch (e: Throwable) {
                 Log.e(TAG, "getDownloadData - ERROR - ${e.message}")
-                flutterError(result, e.message.toString())
+                flutterSuccess(result, 0L)
             }
         }
     }
@@ -315,23 +317,28 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private fun getUploadData(result: Result) {
         scope.launch(Dispatchers.IO) {
             try {
-                val uploadData = futureBackend.await().getTransferData(tunnel(tunnelName)).txBytes
-                flutterSuccess(result, uploadData)
+                val backend = futureBackend.await()
+                val tunnel = tunnel(tunnelName)
+                val stats = backend.getStatistics(tunnel)
+                flutterSuccess(result, stats.totalTx())
             } catch (e: Throwable) {
                 Log.e(TAG, "getUploadData - ERROR - ${e.message}")
-                flutterError(result, e.message.toString())
+                flutterSuccess(result, 0L)
             }
         }
     }
+    
     private fun getTransferData(result: Result) {
         scope.launch(Dispatchers.IO) {
             try {
-                val transferData = futureBackend.await().getTransferData(tunnel(tunnelName))
-                val totalBytes = transferData.txBytes + transferData.rxBytes
-                flutterSuccess(result, totalBytes)
+                val backend = futureBackend.await()
+                val tunnel = tunnel(tunnelName)
+                val stats = backend.getStatistics(tunnel)
+                val totalTransfer = stats.totalRx() + stats.totalTx()
+                flutterSuccess(result, totalTransfer)
             } catch (e: Throwable) {
                 Log.e(TAG, "getTransferData - ERROR - ${e.message}")
-                flutterError(result, e.message.toString())
+                flutterSuccess(result, 0L)
             }
         }
     }
@@ -341,24 +348,23 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             try {
                 val backend = futureBackend.await()
                 val tunnel = tunnel(tunnelName)
-                val transferData = backend.getTransferData(tunnel)
                 val isConnected = backend.getState(tunnel) == Tunnel.State.UP
+                val stats = backend.getStatistics(tunnel)
                 
-                // Get last handshake time from statistics
-                val statistics = backend.getStatistics(tunnel)
-                var latestHandshake: Long = 0
-                
-                for (peer in statistics.peers()) {
-                    val handshakeTime = peer.latestHandshakeTime.epochSecond * 1000L // Convert to milliseconds
-                    if (handshakeTime > latestHandshake) {
-                        latestHandshake = handshakeTime
+                // Get the latest handshake time from the first peer (if any)
+                var latestHandshake: Long? = null
+                val peers = stats.peers()
+                if (peers.isNotEmpty()) {
+                    val firstPeerStats = stats.peer(peers[0])
+                    if (firstPeerStats != null && firstPeerStats.latestHandshakeEpochMillis > 0) {
+                        latestHandshake = firstPeerStats.latestHandshakeEpochMillis
                     }
                 }
                 
                 val statsMap = mapOf(
-                    "rxBytes" to transferData.rxBytes,
-                    "txBytes" to transferData.txBytes,
-                    "lastHandshake" to if (latestHandshake > 0) latestHandshake else null,
+                    "rxBytes" to stats.totalRx(),
+                    "txBytes" to stats.totalTx(),
+                    "lastHandshake" to latestHandshake,
                     "isConnected" to isConnected
                 )
                 
@@ -380,20 +386,30 @@ class WireguardFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         scope.launch(Dispatchers.IO) {
             try {
                 val backend = futureBackend.await()
-                val statistics = backend.getStatistics(tunnel(tunnelName))
+                val tunnel = tunnel(tunnelName)
+                val stats = backend.getStatistics(tunnel)
                 
-                var latestHandshake: Long = 0
-                for (peer in statistics.peers()) {
-                    val handshakeTime = peer.latestHandshakeTime.epochSecond * 1000L // Convert to milliseconds
-                    if (handshakeTime > latestHandshake) {
-                        latestHandshake = handshakeTime
+                // Get the latest handshake time from the first peer
+                val peers = stats.peers()
+                if (peers.isNotEmpty()) {
+                    val firstPeerStats = stats.peer(peers[0])
+                    if (firstPeerStats != null && firstPeerStats.latestHandshakeEpochMillis > 0) {
+                        flutterSuccess(result, firstPeerStats.latestHandshakeEpochMillis)
+                    } else {
+                        scope.launch(Dispatchers.Main) {
+                            result.success(null)
+                        }
+                    }
+                } else {
+                    scope.launch(Dispatchers.Main) {
+                        result.success(null)
                     }
                 }
-                
-                flutterSuccess(result, if (latestHandshake > 0) latestHandshake else null)
             } catch (e: Throwable) {
                 Log.e(TAG, "getLastHandshake - ERROR - ${e.message}")
-                flutterSuccess(result, null)
+                scope.launch(Dispatchers.Main) {
+                    result.success(null)
+                }
             }
         }
     }
